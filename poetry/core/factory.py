@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -41,36 +42,48 @@ class Factory(object):
         # Load package
         name = local_config["name"]
         version = local_config["version"]
-        package = ProjectPackage(name, version, version)
-        package.root_dir = poetry_file.parent
+        package = self.get_package(name, version)
+        package = self.configure_package(package, local_config, poetry_file.parent)
 
-        for author in local_config["authors"]:
+        return Poetry(poetry_file, local_config, package)
+
+    @classmethod
+    def get_package(cls, name, version):  # type: (str, str) -> ProjectPackage
+        return ProjectPackage(name, version, version)
+
+    @classmethod
+    def configure_package(
+        cls, package, config, root
+    ):  # type: (ProjectPackage, Dict[str, Any], Path) -> ProjectPackage
+        package.root_dir = root
+
+        for author in config["authors"]:
             package.authors.append(author)
 
-        for maintainer in local_config.get("maintainers", []):
+        for maintainer in config.get("maintainers", []):
             package.maintainers.append(maintainer)
 
-        package.description = local_config.get("description", "")
-        package.homepage = local_config.get("homepage")
-        package.repository_url = local_config.get("repository")
-        package.documentation_url = local_config.get("documentation")
+        package.description = config.get("description", "")
+        package.homepage = config.get("homepage")
+        package.repository_url = config.get("repository")
+        package.documentation_url = config.get("documentation")
         try:
-            license_ = license_by_id(local_config.get("license", ""))
+            license_ = license_by_id(config.get("license", ""))
         except ValueError:
             license_ = None
 
         package.license = license_
-        package.keywords = local_config.get("keywords", [])
-        package.classifiers = local_config.get("classifiers", [])
+        package.keywords = config.get("keywords", [])
+        package.classifiers = config.get("classifiers", [])
 
-        if "readme" in local_config:
-            package.readme = Path(poetry_file.parent) / local_config["readme"]
+        if "readme" in config:
+            package.readme = root / config["readme"]
 
-        if "platform" in local_config:
-            package.platform = local_config["platform"]
+        if "platform" in config:
+            package.platform = config["platform"]
 
-        if "dependencies" in local_config:
-            for name, constraint in local_config["dependencies"].items():
+        if "dependencies" in config:
+            for name, constraint in config["dependencies"].items():
                 if name.lower() == "python":
                     package.python_versions = constraint
                     continue
@@ -83,8 +96,8 @@ class Factory(object):
 
                 package.add_dependency(name, constraint)
 
-        if "dev-dependencies" in local_config:
-            for name, constraint in local_config["dev-dependencies"].items():
+        if "dev-dependencies" in config:
+            for name, constraint in config["dev-dependencies"].items():
                 if isinstance(constraint, list):
                     for _constraint in constraint:
                         package.add_dependency(name, _constraint, category="dev")
@@ -93,7 +106,7 @@ class Factory(object):
 
                 package.add_dependency(name, constraint, category="dev")
 
-        extras = local_config.get("extras", {})
+        extras = config.get("extras", {})
         for extra_name, requirements in extras.items():
             package.extras[extra_name] = []
 
@@ -108,16 +121,16 @@ class Factory(object):
 
                         break
 
-        if "build" in local_config:
-            build = local_config["build"]
+        if "build" in config:
+            build = config["build"]
             if not isinstance(build, dict):
                 build = {"script": build}
             package.build_config = build or {}
 
-        if "include" in local_config:
+        if "include" in config:
             package.include = []
 
-            for include in local_config["include"]:
+            for include in config["include"]:
                 if not isinstance(include, dict):
                     include = {"path": include}
 
@@ -128,17 +141,17 @@ class Factory(object):
 
                 package.include.append(include)
 
-        if "exclude" in local_config:
-            package.exclude = local_config["exclude"]
+        if "exclude" in config:
+            package.exclude = config["exclude"]
 
-        if "packages" in local_config:
-            package.packages = local_config["packages"]
+        if "packages" in config:
+            package.packages = config["packages"]
 
         # Custom urls
-        if "urls" in local_config:
-            package.custom_urls = local_config["urls"]
+        if "urls" in config:
+            package.custom_urls = config["urls"]
 
-        return Poetry(poetry_file, local_config, package)
+        return package
 
     @classmethod
     def validate(
