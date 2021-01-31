@@ -12,16 +12,10 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu, MacOS, Windows]
-        python-version: [2.7, 3.5, 3.6, 3.7, 3.8, 3.9, pypy2, pypy3]
+        python-version: [3.6, 3.7, 3.8, 3.9, pypy3]
         exclude:
-          - os: Ubuntu
-            python-version: pypy2
-          - os: MacOS
-            python-version: pypy2
           - os: MacOS
             python-version: pypy3
-          - os: Windows
-            python-version: pypy2
           - os: Windows
             python-version: pypy3
     steps:
@@ -47,11 +41,6 @@ jobs:
       - name: Configure poetry
         shell: bash
         run: poetry config virtualenvs.in-project true
-
-      - name: Configure poetry installer
-        if: matrix.python-version == '2.7'
-        shell: bash
-        run: poetry config experimental.new-installer false
 
       - name: Set up cache
         uses: actions/cache@v1
