@@ -1,8 +1,7 @@
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Optional
 from typing import Union
-
-from poetry.core.utils._compat import Path
 
 from .builders.sdist import SdistBuilder
 from .builders.wheel import WheelBuilder
@@ -18,12 +17,10 @@ class Builder:
         "wheel": WheelBuilder,
     }
 
-    def __init__(self, poetry):  # type: ("Poetry") -> None
+    def __init__(self, poetry: "Poetry") -> None:
         self._poetry = poetry
 
-    def build(
-        self, fmt, executable=None
-    ):  # type: (str, Optional[Union[str, Path]]) -> None
+    def build(self, fmt: str, executable: Optional[Union[str, Path]] = None) -> None:
         if fmt in self._FORMATS:
             builders = [self._FORMATS[fmt]]
         elif fmt == "all":

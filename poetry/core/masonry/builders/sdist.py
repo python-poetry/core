@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 import os
 import re
@@ -14,6 +13,7 @@ from posixpath import join as pjoin
 from pprint import pformat
 from tarfile import TarInfo
 from typing import TYPE_CHECKING
+from typing import ContextManager
 from typing import Dict
 from typing import Iterator
 from typing import List
@@ -21,10 +21,7 @@ from typing import Optional
 from typing import Set
 from typing import Tuple
 
-from poetry.core.utils._compat import Path
-from poetry.core.utils._compat import decode
-from poetry.core.utils._compat import encode
-from poetry.core.utils._compat import to_str
+from pathlib import Path
 
 from ..utils.helpers import normalize_file_permissions
 from ..utils.package_include import PackageInclude
@@ -65,7 +62,7 @@ class SdistBuilder(Builder):
 
     format = "sdist"
 
-    def build(self, target_dir=None):  # type: (Optional[Path]) -> Path
+    def build(self, target_dir: Optional[Path] = None) -> Path:
         logger.info("Building <info>sdist</info>")
         if target_dir is None:
             target_dir = self._path / "dist"
@@ -119,7 +116,7 @@ class SdistBuilder(Builder):
         logger.info("Built <comment>{}</comment>".format(target.name))
         return target
 
-    def build_setup(self):  # type: () -> bytes
+    def build_setup(self) -> bytes:
         before, extra, after = [], [], []
         package_dir = {}
 
@@ -196,25 +193,23 @@ class SdistBuilder(Builder):
 
             extra.append("'python_requires': {!r},".format(python_requires))
 
-        return encode(
-            SETUP.format(
-                before="\n".join(before),
-                name=to_str(self._meta.name),
-                version=to_str(self._meta.version),
-                description=to_str(self._meta.summary),
-                long_description=to_str(self._meta.description),
-                author=to_str(self._meta.author),
-                author_email=to_str(self._meta.author_email),
-                maintainer=to_str(self._meta.maintainer),
-                maintainer_email=to_str(self._meta.maintainer_email),
-                url=to_str(self._meta.home_page),
-                extra="\n    ".join(extra),
-                after="\n".join(after),
-            )
-        )
+        return SETUP.format(
+            before="\n".join(before),
+            name=str(self._meta.name),
+            version=str(self._meta.version),
+            description=str(self._meta.summary),
+            long_description=str(self._meta.description),
+            author=str(self._meta.author),
+            author_email=str(self._meta.author_email),
+            maintainer=str(self._meta.maintainer),
+            maintainer_email=str(self._meta.maintainer_email),
+            url=str(self._meta.home_page),
+            extra="\n    ".join(extra),
+            after="\n".join(after),
+        ).encode()
 
     @contextmanager
-    def setup_py(self):  # type: () -> Iterator[Path]
+    def setup_py(self) -> ContextManager[Path]:
         setup = self._path / "setup.py"
         has_setup = setup.exists()
 
@@ -222,19 +217,17 @@ class SdistBuilder(Builder):
             logger.warning("A setup.py file already exists. Using it.")
         else:
             with setup.open("w", encoding="utf-8") as f:
-                f.write(decode(self.build_setup()))
+                f.write(self.build_setup().decode())
 
         yield setup
 
         if not has_setup:
             setup.unlink()
 
-    def build_pkg_info(self):  # type: () -> bytes
-        return encode(self.get_metadata_content())
+    def build_pkg_info(self) -> bytes:
+        return self.get_metadata_content().encode()
 
-    def find_packages(
-        self, include
-    ):  # type: (PackageInclude) -> Tuple[str, List[str], dict]
+    def find_packages(self, include: PackageInclude) -> Tuple[str, List[str], dict]:
         """
         Discover subpackages and data.
 
@@ -313,9 +306,7 @@ class SdistBuilder(Builder):
 
         return pkgdir, sorted(packages), pkg_data
 
-    def find_files_to_add(
-        self, exclude_build=False
-    ):  # type: (bool) -> Set[BuildIncludeFile]
+    def find_files_to_add(self, exclude_build: bool = False) -> Set[BuildIncludeFile]:
         to_add = super(SdistBuilder, self).find_files_to_add(exclude_build)
 
         # add any additional files, starting with all LICENSE files
@@ -342,8 +333,8 @@ class SdistBuilder(Builder):
 
     @classmethod
     def convert_dependencies(
-        cls, package, dependencies
-    ):  # type: ("ProjectPackage", List["Dependency"]) -> Tuple[List[str], Dict[str, List[str]]]
+        cls, package: "ProjectPackage", dependencies: List["Dependency"]
+    ) -> Tuple[List[str], Dict[str, List[str]]]:
         main = []
         extras = defaultdict(list)
         req_regex = re.compile(r"^(.+) \((.+)\)$")
@@ -353,9 +344,7 @@ class SdistBuilder(Builder):
                 for extra_name, reqs in package.extras.items():
                     for req in reqs:
                         if req.name == dependency.name:
-                            requirement = to_str(
-                                dependency.to_pep_508(with_extras=False)
-                            )
+                            requirement = dependency.to_pep_508(with_extras=False)
                             if ";" in requirement:
                                 requirement, conditions = requirement.split(";")
 
@@ -379,7 +368,7 @@ class SdistBuilder(Builder):
                             extras[extra_name].append(requirement)
                 continue
 
-            requirement = to_str(dependency.to_pep_508())
+            requirement = dependency.to_pep_508()
             if ";" in requirement:
                 requirement, conditions = requirement.split(";")
 
@@ -400,7 +389,7 @@ class SdistBuilder(Builder):
         return main, dict(extras)
 
     @classmethod
-    def clean_tarinfo(cls, tar_info):  # type: (TarInfo) -> TarInfo
+    def clean_tarinfo(cls, tar_info: TarInfo) -> TarInfo:
         """
         Clean metadata from a TarInfo object to make it more reproducible.
 

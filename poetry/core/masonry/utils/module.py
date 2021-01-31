@@ -17,8 +17,12 @@ class ModuleOrPackageNotFound(ValueError):
 
 class Module:
     def __init__(
-        self, name, directory=".", packages=None, includes=None
-    ):  # type: (str, str, Optional[List[Dict[str, Any]]], Optional[List[Dict[str, Any]]]) -> None
+        self,
+        name: str,
+        directory: str = ".",
+        packages: Optional[List[Dict[str, Any]]] = None,
+        includes: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         self._name = module_name(name)
         self._in_src = False
         self._is_package = False
@@ -84,26 +88,26 @@ class Module:
             )
 
     @property
-    def name(self):  # type: () -> str
+    def name(self) -> str:
         return self._name
 
     @property
-    def path(self):  # type: () -> Path
+    def path(self) -> Path:
         return self._path
 
     @property
-    def file(self):  # type: () -> Path
+    def file(self) -> Path:
         if self._is_package:
             return self._path / "__init__.py"
         else:
             return self._path
 
     @property
-    def includes(self):  # type: () -> List
+    def includes(self) -> List:
         return self._includes
 
-    def is_package(self):  # type: () -> bool
+    def is_package(self) -> bool:
         return self._is_package
 
-    def is_in_src(self):  # type: () -> bool
+    def is_in_src(self) -> bool:
         return self._in_src

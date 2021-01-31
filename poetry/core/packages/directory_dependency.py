@@ -1,10 +1,11 @@
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import FrozenSet
 from typing import List
+from typing import Optional
 from typing import Union
 
 from poetry.core.pyproject import PyProjectTOML
-from poetry.core.utils._compat import Path
 
 
 if TYPE_CHECKING:
@@ -16,14 +17,14 @@ from .dependency import Dependency
 class DirectoryDependency(Dependency):
     def __init__(
         self,
-        name,  # type: str
-        path,  # type: Path
-        category="main",  # type: str
-        optional=False,  # type: bool
-        base=None,  # type: Path
-        develop=False,  # type: bool
-        extras=None,  # type: Union[List[str], FrozenSet[str]]
-    ):
+        name: str,
+        path: Path,
+        category: str = "main",
+        optional: bool = False,
+        base: Optional[Path] = None,
+        develop: bool = False,
+        extras: Optional[Union[List[str], FrozenSet[str]]] = None,
+    ) -> None:
         self._path = path
         self._base = base or Path.cwd()
         self._full_path = path
@@ -68,30 +69,28 @@ class DirectoryDependency(Dependency):
         )
 
     @property
-    def path(self):  # type: () -> Path
+    def path(self) -> Path:
         return self._path
 
     @property
-    def full_path(self):  # type: () -> Path
+    def full_path(self) -> Path:
         return self._full_path
 
     @property
-    def base(self):  # type: () -> Path
+    def base(self) -> Path:
         return self._base
 
     @property
-    def develop(self):  # type: () -> bool
+    def develop(self) -> bool:
         return self._develop
 
-    def supports_poetry(self):  # type: () -> bool
+    def supports_poetry(self) -> bool:
         return self._supports_poetry
 
-    def is_directory(self):  # type: () -> bool
+    def is_directory(self) -> bool:
         return True
 
-    def with_constraint(
-        self, constraint
-    ):  # type: ("BaseConstraint") -> DirectoryDependency
+    def with_constraint(self, constraint: "BaseConstraint") -> "DirectoryDependency":
         new = DirectoryDependency(
             self.pretty_name,
             path=self.path,
@@ -116,7 +115,7 @@ class DirectoryDependency(Dependency):
         return new
 
     @property
-    def base_pep_508_name(self):  # type: () -> str
+    def base_pep_508_name(self) -> str:
         requirement = self.pretty_name
 
         if self.extras:
@@ -126,7 +125,7 @@ class DirectoryDependency(Dependency):
 
         return requirement
 
-    def __str__(self):  # type: () -> str
+    def __str__(self) -> str:
         if self.is_root:
             return self._pretty_name
 
@@ -134,5 +133,5 @@ class DirectoryDependency(Dependency):
             self._pretty_name, self._pretty_constraint, self._path.as_posix()
         )
 
-    def __hash__(self):  # type: () -> int
+    def __hash__(self) -> int:
         return hash((self._name, self._full_path.as_posix()))

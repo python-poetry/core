@@ -12,10 +12,9 @@ import tempfile
 import zipfile
 
 from base64 import urlsafe_b64encode
-from io import BytesIO
 from io import StringIO
 from typing import TYPE_CHECKING
-from typing import Iterator
+from typing import ContextManager
 from typing import Optional
 from typing import TextIO
 from typing import Union
@@ -24,9 +23,7 @@ from packaging.tags import sys_tags
 
 from poetry.core import __version__
 from poetry.core.semver import parse_constraint
-from poetry.core.utils._compat import PY2
-from poetry.core.utils._compat import Path
-from poetry.core.utils._compat import decode
+from pathlib import Path
 
 from ..utils.helpers import escape_name
 from ..utils.helpers import escape_version
@@ -52,20 +49,28 @@ class WheelBuilder(Builder):
     format = "wheel"
 
     def __init__(
-        self, poetry, target_dir=None, original=None, executable=None
-    ):  # type: ("Poetry", Optional[Path], Optional[Path], Optional[str]) -> None
+        self,
+        poetry: "Poetry",
+        target_dir: Optional[Path] = None,
+        original: Optional[Path] = None,
+        executable: Optional[str] = None,
+    ) -> None:
         super(WheelBuilder, self).__init__(poetry, executable=executable)
 
         self._records = []
         self._original_path = self._path
         self._target_dir = target_dir or (self._poetry.file.parent / "dist")
         if original:
-            self._original_path = original.file.parent
+            self._original_path = original.parent
 
     @classmethod
     def make_in(
-        cls, poetry, directory=None, original=None, executable=None
-    ):  # type: ("Poetry", Path, Path, str) -> str
+        cls,
+        poetry: "Poetry",
+        directory: Optional[Path] = None,
+        original: Optional[Path] = None,
+        executable: Optional[str] = None,
+    ) -> str:
         wb = WheelBuilder(
             poetry, target_dir=directory, original=original, executable=executable
         )
@@ -74,11 +79,11 @@ class WheelBuilder(Builder):
         return wb.wheel_filename
 
     @classmethod
-    def make(cls, poetry, executable=None):  # type: ("Poetry", Optional[str]) -> None
+    def make(cls, poetry: "Poetry", executable: Optional[str] = None) -> None:
         """Build a wheel in the dist/ directory, and optionally upload it."""
         cls.make_in(poetry, executable=executable)
 
-    def build(self):  # type: () -> None
+    def build(self) -> None:
         logger.info("Building wheel")
 
         dist_dir = self._target_dir
@@ -112,7 +117,7 @@ class WheelBuilder(Builder):
 
         logger.info("Built {}".format(self.wheel_filename))
 
-    def _build(self, wheel):  # type: (zipfile.ZipFile) -> None
+    def _build(self, wheel: zipfile.ZipFile) -> None:
         if self._package.build_script:
             if not self._poetry.package.build_should_generate_setup():
                 # Since we have a build script but no setup.py generation is required,
@@ -159,7 +164,7 @@ class WheelBuilder(Builder):
 
                         self._add_file(wheel, pkg, rel_path)
 
-    def _run_build_command(self, setup):  # type: (Path) -> None
+    def _run_build_command(self, setup: Path) -> None:
         subprocess.check_call(
             [
                 self.executable.as_posix(),
@@ -170,11 +175,11 @@ class WheelBuilder(Builder):
             ]
         )
 
-    def _run_build_script(self, build_script):  # type: (str) -> None
+    def _run_build_script(self, build_script: str) -> None:
         logger.debug("Executing build script: {}".format(build_script))
         subprocess.check_call([self.executable.as_posix(), build_script])
 
-    def _copy_module(self, wheel):  # type: (zipfile.ZipFile) -> None
+    def _copy_module(self, wheel: zipfile.ZipFile) -> None:
         to_add = self.find_files_to_add()
 
         # Walk the files and compress them,
@@ -182,7 +187,7 @@ class WheelBuilder(Builder):
         for file in sorted(list(to_add), key=lambda x: x.path):
             self._add_file(wheel, file.path, file.relative_to_source_root())
 
-    def _write_metadata(self, wheel):  # type: (zipfile.ZipFile) -> None
+    def _write_metadata(self, wheel: zipfile.ZipFile) -> None:
         if (
             "scripts" in self._poetry.local_config
             or "plugins" in self._poetry.local_config
@@ -210,10 +215,10 @@ class WheelBuilder(Builder):
         with self._write_to_zip(wheel, self.dist_info + "/METADATA") as f:
             self._write_metadata_file(f)
 
-    def _write_record(self, wheel):  # type: (zipfile.ZipFile) -> None
+    def _write_record(self, wheel: zipfile.ZipFile) -> None:
         # Write a record of the files in the wheel
         with self._write_to_zip(wheel, self.dist_info + "/RECORD") as f:
-            record = StringIO() if not PY2 else BytesIO()
+            record = StringIO()
 
             csv_writer = csv.writer(
                 record,
@@ -227,33 +232,33 @@ class WheelBuilder(Builder):
             # RECORD itself is recorded with no hash or size
             csv_writer.writerow((self.dist_info + "/RECORD", "", ""))
 
-            f.write(decode(record.getvalue()))
+            f.write(record.getvalue())
 
     @property
-    def dist_info(self):  # type: () -> str
+    def dist_info(self) -> str:
         return self.dist_info_name(self._package.name, self._meta.version)
 
     @property
-    def wheel_filename(self):  # type: () -> str
+    def wheel_filename(self) -> str:
         return "{}-{}-{}.whl".format(
             escape_name(self._package.pretty_name),
             escape_version(self._meta.version),
             self.tag,
         )
 
-    def supports_python2(self):  # type: () -> bool
+    def supports_python2(self) -> bool:
         return self._package.python_constraint.allows_any(
             parse_constraint(">=2.0.0 <3.0.0")
         )
 
-    def dist_info_name(self, distribution, version):  # type: (str, str) -> str
+    def dist_info_name(self, distribution: str, version: str) -> str:
         escaped_name = escape_name(distribution)
         escaped_version = escape_version(version)
 
         return "{}-{}.dist-info".format(escaped_name, escaped_version)
 
     @property
-    def tag(self):  # type: () -> str
+    def tag(self) -> str:
         if self._package.build_script:
             tag = next(sys_tags())
             tag = (tag.interpreter, tag.abi, tag.platform)
@@ -269,8 +274,11 @@ class WheelBuilder(Builder):
         return "-".join(tag)
 
     def _add_file(
-        self, wheel, full_path, rel_path
-    ):  # type: (zipfile.ZipFile, Union[Path, str], Union[Path, str]) -> None
+        self,
+        wheel: zipfile.ZipFile,
+        full_path: Union[Path, str],
+        rel_path: Union[Path, str],
+    ) -> None:
         full_path, rel_path = str(full_path), str(rel_path)
         if os.sep != "/":
             # We always want to have /-separated paths in the zip file and in
@@ -305,8 +313,8 @@ class WheelBuilder(Builder):
 
     @contextlib.contextmanager
     def _write_to_zip(
-        self, wheel, rel_path
-    ):  # type: (zipfile.ZipFile, str) -> Iterator[StringIO]
+        self, wheel: zipfile.ZipFile, rel_path: str
+    ) -> ContextManager[StringIO]:
         sio = StringIO()
         yield sio
 
@@ -323,7 +331,7 @@ class WheelBuilder(Builder):
         wheel.writestr(zi, b, compress_type=zipfile.ZIP_DEFLATED)
         self._records.append((rel_path, hash_digest, len(b)))
 
-    def _write_entry_points(self, fp):  # type: (TextIO) -> None
+    def _write_entry_points(self, fp: TextIO) -> None:
         """
         Write entry_points.txt.
         """
@@ -336,7 +344,7 @@ class WheelBuilder(Builder):
 
             fp.write("\n")
 
-    def _write_wheel_file(self, fp):  # type: (TextIO) -> None
+    def _write_wheel_file(self, fp: TextIO) -> None:
         fp.write(
             wheel_file_template.format(
                 version=__version__,
@@ -345,8 +353,8 @@ class WheelBuilder(Builder):
             )
         )
 
-    def _write_metadata_file(self, fp):  # type: (TextIO) -> None
+    def _write_metadata_file(self, fp: TextIO) -> None:
         """
         Write out metadata in the 2.x format (email like)
         """
-        fp.write(decode(self.get_metadata_content()))
+        fp.write(self.get_metadata_content())

@@ -1,7 +1,7 @@
 import re
 
 
-def normalize_file_permissions(st_mode):  # type: (int) -> int
+def normalize_file_permissions(st_mode: int) -> int:
     """
     Normalizes the permission bits in the st_mode field from stat to 644/755
 
@@ -17,7 +17,7 @@ def normalize_file_permissions(st_mode):  # type: (int) -> int
     return new_mode
 
 
-def escape_version(version):  # type: (str) -> str
+def escape_version(version: str) -> str:
     """
     Escaped version in wheel filename. Doesn't exactly follow
     the escaping specification in :pep:`427#escaping-and-unicode`
@@ -26,6 +26,6 @@ def escape_version(version):  # type: (str) -> str
     return re.sub(r"[^\w\d.+]+", "_", version, flags=re.UNICODE)
 
 
-def escape_name(name):  # type: (str) -> str
+def escape_name(name: str) -> str:
     """Escaped wheel name as specified in :pep:`427#escaping-and-unicode`."""
     return re.sub(r"[^\w\d.]+", "_", name, flags=re.UNICODE)
